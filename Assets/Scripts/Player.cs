@@ -82,7 +82,7 @@ public class Player : NetworkBehaviour
     private void SendLifeToServerRpc(float life)
     {
         playerLife.Value = $"Vida: {this.life}";
-        SendLifeToClientsRpc($"Vida: {this.life - 1}", life);
+        SendLifeToClientsRpc($"Vida: {this.life}", life);
     }
     [Rpc(SendTo.Server)]
     private void SendLifeToClientsRpc(string lifeS, float life)
@@ -130,6 +130,13 @@ public class Player : NetworkBehaviour
             if (IsOwner)
             {
                 SetLife(1);
+            }
+        }
+        if (other.CompareTag("Bullet2"))
+        {
+            if (IsOwner)
+            {
+                SetLife(2);
             }
         }
     }
