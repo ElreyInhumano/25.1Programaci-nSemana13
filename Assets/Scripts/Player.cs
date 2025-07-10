@@ -7,13 +7,13 @@ using TMPro;
 public class Player : NetworkBehaviour
 {
     private NetworkVariable<FixedString32Bytes> playerName = new NetworkVariable<FixedString32Bytes>();
-    private NetworkVariable<FixedString32Bytes> playerLife = new NetworkVariable<FixedString32Bytes>();
+    private NetworkVariable<FixedString32Bytes> playerScore = new NetworkVariable<FixedString32Bytes>();
     private NetworkVariable<FixedString32Bytes> playerColor = new NetworkVariable<FixedString32Bytes>();
     private Rigidbody rb;
     [SerializeField] private float speed;
-    [SerializeField] public float life;
+    [SerializeField] private float score;    
     [SerializeField] private TextMesh playerNameText;
-    [SerializeField] private TextMesh lifeText;
+    [SerializeField] private TextMesh scoreText;
     [SerializeField] private MeshRenderer meshRenderer;
     [SerializeField] private Material red, blue, yellow, green;
     [Header("Attack Variables")]
@@ -21,14 +21,18 @@ public class Player : NetworkBehaviour
     [SerializeField] private GameObject bullet2;
     [SerializeField] private GameObject shootPoint;
     [SerializeField] private bool attacking;
+    [SerializeField] private bool haveFaster;
     [SerializeField] private float delayAttack;
-    [SerializeField] private float delayAttack2;
+    [SerializeField] private float biggerDelayAttack;
+    [SerializeField] private float fasterDelayAttack;
     private float lastAttackTime;
+    [SerializeField] public GunType gunType;
+    public enum GunType { biggerShoot, fasterShoot }
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         meshRenderer = GetComponent<MeshRenderer>();
-        playerLife.Value = $"Vida: {life}";
+        playerScore.Value = $"Score: {score}";
     }
     public override void OnNetworkSpawn()
     {
@@ -37,10 +41,10 @@ public class Player : NetworkBehaviour
         {
             playerNameText.text = newName.Value.ToString();
         };
-        lifeText.text = playerLife.Value.ToString();
-        playerLife.OnValueChanged += (oldName, newName) =>
+        scoreText.text = playerScore.Value.ToString();
+        playerScore.OnValueChanged += (oldName, newName) =>
         {
-            lifeText.text = newName.Value.ToString();
+            scoreText.text = newName.Value.ToString();
         };
 
     }
@@ -52,11 +56,11 @@ public class Player : NetworkBehaviour
             SendNameToServerRpc(name);
         }
     }
-    public void SetLife(float life)
+    public void SetScore(float score)
     {
         if (IsOwner)
         {
-            SendLifeToServerRpc(life);
+            SendScoreToServerRpc(score);
         }
     }
     public void SetColor(string color)
@@ -79,16 +83,16 @@ public class Player : NetworkBehaviour
         playerNameText.text = name;
     }
     [Rpc(SendTo.Server)]
-    private void SendLifeToServerRpc(float life)
+    private void SendScoreToServerRpc(float score)
     {
-        playerLife.Value = $"Vida: {this.life}";
-        SendLifeToClientsRpc($"Vida: {this.life}", life);
+        playerScore.Value = $"Score: {this.score}";
+        SendScoreToClientsRpc($"Score: {this.score}", score);
     }
     [Rpc(SendTo.Server)]
-    private void SendLifeToClientsRpc(string lifeS, float life)
+    private void SendScoreToClientsRpc(string scoreS, float score)
     {
-        this.life -= life;
-        lifeText.text = lifeS;
+        this.score += score;
+        scoreText.text = scoreS;
     }
     [Rpc(SendTo.Server)]
     private void SendColorToServerRpc(string color)
@@ -120,23 +124,33 @@ public class Player : NetworkBehaviour
         if (IsOwner)
         {
             PlayerMove();
+            AttackType();
             PlayerShoot();
         }
     }
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Bullet"))
+        if (other.CompareTag("Enemy"))
         {
             if (IsOwner)
             {
-                SetLife(1);
+                SetScore(-10);
             }
         }
-        if (other.CompareTag("Bullet2"))
+        if (other.CompareTag("Weapon1"))
         {
             if (IsOwner)
             {
-                SetLife(2);
+                SetColor("red");
+                haveFaster = false;
+            }
+        }
+        if (other.CompareTag("Weapon2"))
+        {
+            if (IsOwner)
+            {
+                SetColor("blue");
+                haveFaster = true;
             }
         }
     }
@@ -147,42 +161,57 @@ public class Player : NetworkBehaviour
 
         Vector2 direction = new Vector2(h, v);
         direction.Normalize();
-        rb.linearVelocity = new Vector3(direction.x, 0, direction.y) * speed + Vector3.up * rb.linearVelocity.y;
+        rb.linearVelocity = new Vector3(direction.x, 0, 0) * speed + Vector3.up * rb.linearVelocity.y;
     }
 
     void PlayerShoot()
     {
-        if (Input.GetKeyDown(KeyCode.Mouse0))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             attacking = true;
-            if (Time.time - lastAttackTime > delayAttack)
+            switch (gunType)
             {
-                if (attacking)
-                {
-                    StartCoroutine(ShootBullet());
-                }
-                lastAttackTime = Time.time;
+                case GunType.biggerShoot:
+                    if (Time.time - lastAttackTime > delayAttack)
+                    {
+                        if (attacking)
+                        {
+                            StartCoroutine(ShootBullet());
+                        }
+                        lastAttackTime = Time.time;
+                        //Invoke(nameof(SpawnBullet), 0.9f);
+                    }
+                    break;
+                case GunType.fasterShoot:
+                    if (Time.time - lastAttackTime > delayAttack)
+                    {
+                        if (attacking)
+                        {
+                            StartCoroutine(ShootBullet2());
+
+                        }
+                        lastAttackTime = Time.time;
+                        //Invoke(nameof(SpawnBullet), 0.9f);
+                    }
+                    break;
             }
         }
         else
         {
             attacking = false;
         }
-        if (Input.GetKeyDown(KeyCode.Mouse1))
+    }
+    private void AttackType()
+    {
+        if (haveFaster)
         {
-            attacking = true;
-            if (Time.time - lastAttackTime > delayAttack2)
-            {
-                if (attacking)
-                {
-                    StartCoroutine(ShootBullet2());
-                }
-                lastAttackTime = Time.time;
-            }
+            gunType = GunType.fasterShoot;
+            delayAttack = fasterDelayAttack;
         }
-        else
+        else if (!haveFaster)
         {
-            attacking = false;
+            gunType = GunType.biggerShoot;
+            delayAttack = biggerDelayAttack;
         }
     }
     [Rpc(SendTo.Server)]

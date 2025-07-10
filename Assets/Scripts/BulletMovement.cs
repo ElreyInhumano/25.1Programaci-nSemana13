@@ -5,7 +5,7 @@ public class BulletMovement : NetworkBehaviour
     private Rigidbody rb;
     [SerializeField] private float speedBullet;
     [SerializeField] private float timerBullet;
-    private ulong ownerId;
+    public ulong ownerId;
     public void Init(ulong ownerId)
     {
         this.ownerId = ownerId;
@@ -16,6 +16,7 @@ public class BulletMovement : NetworkBehaviour
         {
             rb = gameObject.GetComponent<Rigidbody>();
         }
+        
     }
 
     void Update()
@@ -30,17 +31,17 @@ public class BulletMovement : NetworkBehaviour
     {
         if (IsServer)
         {
-            rb.AddForce(new Vector3(0, 0, speedBullet), ForceMode.VelocityChange);
+            rb.AddForce(new Vector3(0, speedBullet, 0), ForceMode.VelocityChange);
         }
     }
     private void BulletMove()
     {
-        rb.AddForce(new Vector3(0, 0, speedBullet), ForceMode.VelocityChange);
+        rb.AddForce(new Vector3(0, speedBullet, 0), ForceMode.VelocityChange);
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (IsServer && other.CompareTag("Player") && other.GetComponent<Player>().OwnerClientId!=ownerId)
+        if (IsServer && other.CompareTag("Enemy"))
         {
                 //other.GetComponent<Player>().SetLife(1);
                 Invoke(nameof(BulletAutoDestroy), 0.05f);
